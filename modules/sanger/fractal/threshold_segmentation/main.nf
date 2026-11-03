@@ -8,18 +8,21 @@ process FRACTAL_THRESHOLD_SEGMENTATION {
         "${params.fractal_container}" }"
 
     input:
-    tuple val(meta), path(ome_zarr), val(channel_identifier), val(label_name)
+    tuple val(meta), path(ome_zarr), val(image_path), val(channel_identifier), val(label_name)
 
     output:
-    // The same OME-Zarr, now with labels/<label_name>, handed to the next step
-    tuple val(meta), path(ome_zarr), val(label_name), emit: zarr
+    // The same plate, now with <image_path>/labels/<label_name>, handed to the next step
+    tuple val(meta), path(ome_zarr), val(image_path), val(label_name), emit: zarr
     path "versions.yml"                              , emit: versions
 
     script:
+    // `ome_zarr` is the whole plate (staged as a symlink, so this is cheap);
+    // `image_path` selects one image inside it, e.g. "B/03/0" ("" for a single image)
+    def zarr_url = image_path ? "\$PWD/${ome_zarr}/${image_path}" : "\$PWD/${ome_zarr}"
     // task.ext.args (a Map) can override/extend any task argument, e.g.
     // segmentation_method, pre_post_process, create_masking_roi_table
     def task_args = groovy.json.JsonOutput.toJson([
-        zarr_url         : "\$PWD/${ome_zarr}",
+        zarr_url         : zarr_url,
         channel          : [mode: params.channel_mode, identifier: "${channel_identifier}"],
         output_label_name: label_name,
         overwrite        : true,
@@ -41,8 +44,9 @@ process FRACTAL_THRESHOLD_SEGMENTATION {
     """
 
     stub:
+    def image_dir = image_path ? "${ome_zarr}/${image_path}" : "${ome_zarr}"
     """
-    mkdir -p ${ome_zarr}/labels/${label_name}
+    mkdir -p ${image_dir}/labels/${label_name}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

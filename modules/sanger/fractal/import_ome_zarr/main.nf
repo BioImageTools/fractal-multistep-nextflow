@@ -11,11 +11,12 @@ process FRACTAL_IMPORT_OME_ZARR {
     tuple val(meta), path(ome_zarr, stageAs: 'input/*')
 
     output:
-    // A fresh copy of the OME-Zarr that every downstream Fractal task writes into
-    tuple val(meta), path("${meta.id}.zarr")        , emit: zarr
-    // Fractal's own "image list update" (what fractal-server would ingest)
-    tuple val(meta), path("${meta.id}.image_list.json"), emit: image_list
-    path "versions.yml"                              , emit: versions
+    // A fresh copy of the OME-Zarr (plate or image) that every downstream Fractal
+    // task writes into, together with Fractal's own "image list update": one
+    // entry per image (i.e. per well/field for a plate). The workflow uses the
+    // latter to fan out to one downstream task per image, as fractal-server does.
+    tuple val(meta), path("${meta.id}.zarr"), path("${meta.id}.image_list.json"), emit: zarr
+    path "versions.yml"                                                      , emit: versions
 
     script:
     // task.ext.args (a Map) is merged into advanced_options, see conf/modules.config
@@ -54,7 +55,10 @@ process FRACTAL_IMPORT_OME_ZARR {
     """
     cp -rL ${ome_zarr} ${meta.id}.zarr
     mkdir -p ${meta.id}.zarr/tables/image_ROI_table
-    echo '{"image_list_updates": []}' > ${meta.id}.image_list.json
+    # treat the whole OME-Zarr as a single image when stubbing
+    cat > ${meta.id}.image_list.json <<EOF
+    {"image_list_updates": [{"zarr_url": "\$PWD/${meta.id}.zarr"}]}
+    EOF
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
