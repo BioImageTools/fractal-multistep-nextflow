@@ -1,0 +1,32 @@
+{
+  "plate": {
+    "columns": [
+      {
+        "name": "03"
+      },
+      {
+        "name": "04"
+      }
+    ],
+    "name": "PLK1_plate",
+    "rows": [
+      {
+        "name": "B"
+      }
+    ],
+    "wells": [
+      {
+        "path": "B/03",
+        "rowIndex": 0,
+        "columnIndex": 0
+      },
+      {
+        "path": "B/04",
+        "rowIndex": 0,
+        "columnIndex": 1
+      }
+    ],
+    "version": "0.4"
+  },
+  "version": "0.4"
+}
