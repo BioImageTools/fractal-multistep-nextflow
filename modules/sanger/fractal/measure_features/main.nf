@@ -15,6 +15,8 @@ process FRACTAL_MEASURE_FEATURES {
     tuple val(meta), path(ome_zarr), val(image_path)          , emit: zarr
     // A flat copy of the feature table for convenience
     tuple val(meta), path("${meta.id}_${table_name}.csv")     , emit: features
+    // The exact arguments the Fractal task received (listed in the nf-prov RO-Crate)
+    tuple val(meta), path("${meta.id}.measure_features.args.json"), emit: args
     path "versions.yml"                                       , emit: versions
 
     script:
@@ -31,12 +33,12 @@ process FRACTAL_MEASURE_FEATURES {
         overwrite        : true,
     ] + (task.ext.args ?: [:]))
     """
-    cat > args.json <<EOF
+    cat > ${meta.id}.measure_features.args.json <<EOF
     ${task_args}
     EOF
 
     python -m fractal_tasks_core.measure_features \\
-        --args-json args.json \\
+        --args-json ${meta.id}.measure_features.args.json \\
         --out-json out.json
 
     cp ${image_dir}/tables/${table_name}/table.csv ${meta.id}_${table_name}.csv
@@ -53,6 +55,7 @@ process FRACTAL_MEASURE_FEATURES {
     """
     mkdir -p ${image_dir}/tables/${table_name}
     touch ${meta.id}_${table_name}.csv
+    touch ${meta.id}.measure_features.args.json
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

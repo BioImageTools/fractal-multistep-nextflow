@@ -16,6 +16,9 @@ process FRACTAL_IMPORT_OME_ZARR {
     // entry per image (i.e. per well/field for a plate). The workflow uses the
     // latter to fan out to one downstream task per image, as fractal-server does.
     tuple val(meta), path("${meta.id}.zarr"), path("${meta.id}.image_list.json"), emit: zarr
+    // The exact arguments the Fractal task received, published so that nf-prov
+    // lists them in the run's RO-Crate
+    tuple val(meta), path("${meta.id}.import_ome_zarr.args.json")            , emit: args
     path "versions.yml"                                                      , emit: versions
 
     script:
@@ -36,12 +39,12 @@ process FRACTAL_IMPORT_OME_ZARR {
     # Work on a dereferenced copy so the input data is never touched.
     cp -rL ${ome_zarr} ${meta.id}.zarr
 
-    cat > args.json <<EOF
+    cat > ${meta.id}.import_ome_zarr.args.json <<EOF
     ${task_args}
     EOF
 
     python -m fractal_tasks_core.import_ome_zarr \\
-        --args-json args.json \\
+        --args-json ${meta.id}.import_ome_zarr.args.json \\
         --out-json ${meta.id}.image_list.json
 
     cat <<-END_VERSIONS > versions.yml
@@ -59,6 +62,7 @@ process FRACTAL_IMPORT_OME_ZARR {
     cat > ${meta.id}.image_list.json <<EOF
     {"image_list_updates": [{"zarr_url": "\$PWD/${meta.id}.zarr"}]}
     EOF
+    touch ${meta.id}.import_ome_zarr.args.json
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

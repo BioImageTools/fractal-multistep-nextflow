@@ -13,7 +13,9 @@ process FRACTAL_THRESHOLD_SEGMENTATION {
     output:
     // The same plate, now with <image_path>/labels/<label_name>, handed to the next step
     tuple val(meta), path(ome_zarr), val(image_path), val(label_name), emit: zarr
-    path "versions.yml"                              , emit: versions
+    // The exact arguments the Fractal task received (listed in the nf-prov RO-Crate)
+    tuple val(meta), path("${meta.id}.threshold_segmentation.args.json"), emit: args
+    path "versions.yml"                                                  , emit: versions
 
     script:
     // `ome_zarr` is the whole plate (staged as a symlink, so this is cheap);
@@ -28,12 +30,12 @@ process FRACTAL_THRESHOLD_SEGMENTATION {
         overwrite        : true,
     ] + (task.ext.args ?: [:]))
     """
-    cat > args.json <<EOF
+    cat > ${meta.id}.threshold_segmentation.args.json <<EOF
     ${task_args}
     EOF
 
     python -m fractal_tasks_core.threshold_segmentation \\
-        --args-json args.json \\
+        --args-json ${meta.id}.threshold_segmentation.args.json \\
         --out-json out.json
 
     cat <<-END_VERSIONS > versions.yml
@@ -47,6 +49,7 @@ process FRACTAL_THRESHOLD_SEGMENTATION {
     def image_dir = image_path ? "${ome_zarr}/${image_path}" : "${ome_zarr}"
     """
     mkdir -p ${image_dir}/labels/${label_name}
+    touch ${meta.id}.threshold_segmentation.args.json
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
